@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ことば なぞり</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:"UD Digi Kyokasho N-R","BIZ UDPGothic","Yu Gothic",sans-serif;background:#edf2f6;color:#24323c}
+button{font-family:inherit}.screen{position:absolute;inset:0}.hidden{display:none!important}
+#titleScreen{display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#f4f8fb,#dfeaf2)}
+.titleCard{width:min(90vw,720px);padding:34px 30px 38px;background:#fff;border-radius:30px;box-shadow:0 14px 40px #0002;text-align:center}
+.titleCard h1{margin:0 0 12px;font-size:clamp(34px,6vw,58px);letter-spacing:.04em}.titleCard p{margin:0 0 28px;font-size:clamp(18px,3vw,26px);font-weight:800;color:#667784}
+.modeButtons{display:grid;grid-template-columns:1fr 1fr;gap:18px}.modeBtn{min-height:120px;border:0;border-radius:24px;color:#fff;font-size:clamp(28px,4vw,42px);font-weight:900;cursor:pointer;box-shadow:0 8px 0 rgba(0,0,0,.12)}
+.modeBtn:active{transform:translateY(4px);box-shadow:0 4px 0 rgba(0,0,0,.12)}.modeBtn.hira{background:#df6f77}.modeBtn.kata{background:#527fb9}
+#gameScreen{background:#fff;display:grid;grid-template-rows:47% 53%}.imageArea{position:relative;display:flex;align-items:center;justify-content:center;background:#e7eef4;border-bottom:3px solid #d8e1e8;overflow:hidden}
+.imageFrame{position:relative;width:min(84%,680px);height:88%;border-radius:26px;background:#dce5eb;overflow:hidden;box-shadow:0 8px 28px #0002}#sourceImage{display:none}#effectCanvas{width:100%;height:100%;display:block}
+.imageFallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;background:#f6f9fb;color:#73818b;font-size:18px;font-weight:800;line-height:1.6;white-space:pre-line}.imageFallback.hidden{display:none}
+.topBar{position:absolute;left:12px;right:12px;top:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}.topBar button{pointer-events:auto;border:0;border-radius:999px;padding:9px 14px;background:rgba(255,255,255,.9);font-weight:900;color:#32424e;box-shadow:0 2px 10px #0002;cursor:pointer}.problemCount{background:rgba(255,255,255,.88);border-radius:999px;padding:8px 13px;font-weight:900;color:#53636f}
+.traceArea{min-height:0;display:grid;grid-template-rows:1fr auto;padding:8px 14px 9px}.wordStage{min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:2px 6px}.wordLine{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:clamp(3px,.8vw,10px)}
+.charSlot{flex:0 0 auto;height:100%;display:flex;align-items:center;justify-content:flex-start;position:relative}.charSlot.small{align-items:flex-end}.charSvg{display:block;touch-action:none;user-select:none;-webkit-user-select:none;overflow:visible}.charSlot:not(.small) .charSvg{width:100%;height:100%}.charSlot.small .charSvg{width:100%;height:72%;align-self:flex-end}
+.guidePart{fill:#dfe4ea}.donePart,.currentDarkPart{fill:#35434d}.startDot{fill:#ffd54f;stroke:#8a6a00;stroke-width:7}.startRing{fill:none;stroke:#ffb300;stroke-width:9;animation:pulse 1s infinite}.startNum{font-size:46px;font-weight:900;text-anchor:middle;dominant-baseline:middle;pointer-events:none}@keyframes pulse{0%,100%{opacity:.28}50%{opacity:1}}.runner{font-size:86px;text-anchor:middle;dominant-baseline:middle;pointer-events:none;filter:drop-shadow(0 5px 3px #0004)}
+.bottomBar{min-height:42px;display:flex;align-items:center;justify-content:center;gap:10px}.bottomBar button{border:0;border-radius:14px;padding:9px 17px;background:#26384f;color:#fff;font-weight:900;font-size:16px;cursor:pointer}.message{min-width:160px;text-align:center;font-size:18px;font-weight:900;color:#52616b}
+.completeOverlay{position:absolute;inset:0;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;z-index:20}.completeCard{padding:30px 34px;background:#fff;border-radius:26px;text-align:center;box-shadow:0 12px 34px #0003}.completeWord{font-size:clamp(44px,7vw,76px);font-weight:900;margin-bottom:20px}.completeCard button{border:0;border-radius:18px;padding:14px 28px;background:#26384f;color:#fff;font-size:24px;font-weight:900;cursor:pointer}
+@media(max-width:700px){.modeButtons{grid-template-columns:1fr}.modeBtn{min-height:90px}.imageFrame{width:90%}}
+
+/* ===== ゲーム進行 v4 ===== */
+.titleStep.hidden{display:none!important}
+.timeButtons{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.timeBtn{
+  min-height:112px;border:0;border-radius:24px;color:#fff;
+  font-size:clamp(24px,3.5vw,36px);font-weight:900;cursor:pointer;
+  box-shadow:0 8px 0 rgba(0,0,0,.12)
+}
+.timeBtn:active{transform:translateY(4px);box-shadow:0 4px 0 rgba(0,0,0,.12)}
+.timeBtn.noLimit{background:#45a56b}
+.timeBtn.timed{background:#ef8b3d}
+.backMode{
+  margin-top:18px;border:0;background:transparent;color:#687a87;
+  font-size:18px;font-weight:900;cursor:pointer
+}
+
+.topBar{
+  justify-content:flex-end!important;
+  gap:10px;
+}
+.timerBox{
+  width:min(31vw,220px);
+  background:rgba(255,255,255,.93);
+  border-radius:999px;
+  padding:7px 10px;
+  box-shadow:0 2px 10px #0002;
+}
+.timerRow{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;font-size:15px;font-weight:900;color:#3c4b56
+}
+.timerTrack{
+  margin-top:4px;height:9px;border-radius:999px;
+  overflow:hidden;background:#dfe6eb
+}
+.timerFill{
+  width:100%;height:100%;border-radius:999px;
+  background:#f39a3d;transform-origin:left center
+}
+.timerBox.hidden{display:none!important}
+
+.bottomBar{min-height:30px}
+.message{font-size:16px}
+
+/* 正解後：背景は一切覆わない */
+.successLayer{
+  position:absolute;inset:0;z-index:30;
+  pointer-events:none;overflow:hidden
+}
+.nextFloat{
+  position:absolute;left:50%;top:49%;
+  transform:translate(-50%,-50%) scale(.9);
+  pointer-events:auto;
+  border:0;border-radius:18px;
+  padding:11px 24px;
+  background:#26384f;color:#fff;
+  font-size:21px;font-weight:900;
+  box-shadow:0 7px 18px #0004;
+  opacity:0;
+  transition:opacity .18s ease,transform .18s ease;
+}
+.nextFloat.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.starParticle{
+  position:absolute;left:50%;top:50%;
+  font-size:var(--size);
+  transform:translate(-50%,-50%);
+  animation:starBurst var(--dur) cubic-bezier(.12,.7,.18,1) forwards;
+  filter:drop-shadow(0 2px 2px #0004)
+}
+@keyframes starBurst{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.25) rotate(0deg)}
+  12%{opacity:1}
+  100%{
+    opacity:0;
+    transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy)))
+              scale(1.15) rotate(var(--rot))
+  }
+}
+
+/* 時間切れ */
+.timeoutLayer{
+  position:absolute;inset:0;z-index:35;
+  pointer-events:none;overflow:hidden
+}
+.boomCore{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(.2);
+  font-size:clamp(100px,18vw,210px);
+  animation:boomCore .7s ease-out forwards;
+  filter:drop-shadow(0 8px 8px #0005)
+}
+.boomParticle{
+  position:absolute;left:50%;top:50%;
+  width:var(--size);height:var(--size);
+  border-radius:50%;
+  background:var(--c);
+  animation:boomParticle .72s ease-out forwards;
+}
+@keyframes boomCore{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.15) rotate(-12deg)}
+  28%{opacity:1;transform:translate(-50%,-50%) scale(1.18) rotate(8deg)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.6) rotate(15deg)}
+}
+@keyframes boomParticle{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.4)}
+  100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.2)}
+}
+.screenShake{animation:screenShake .5s linear}
+@keyframes screenShake{
+  0%,100%{transform:translate(0,0)}
+  15%{transform:translate(-8px,4px)}
+  30%{transform:translate(8px,-5px)}
+  45%{transform:translate(-6px,-3px)}
+  60%{transform:translate(7px,4px)}
+  75%{transform:translate(-4px,2px)}
+}
+
+/* 問題切替：ランダムムービー風 */
+.transitionLayer{
+  position:absolute;inset:0;z-index:50;
+  pointer-events:none;overflow:hidden;
+  display:none
+}
+.transitionLayer.active{display:block}
+.transitionStrip{
+  position:absolute;background:#fff;
+  box-shadow:0 0 22px #0002
+}
+.t-sweep .transitionStrip{
+  top:0;bottom:0;width:18%;transform:translateX(-130vw) skewX(-12deg);
+  animation:sweepStrip .72s ease-in-out forwards
+}
+.t-sweep .transitionStrip:nth-child(1){left:-10%;animation-delay:0s}
+.t-sweep .transitionStrip:nth-child(2){left:7%;animation-delay:.035s}
+.t-sweep .transitionStrip:nth-child(3){left:24%;animation-delay:.07s}
+.t-sweep .transitionStrip:nth-child(4){left:41%;animation-delay:.105s}
+.t-sweep .transitionStrip:nth-child(5){left:58%;animation-delay:.14s}
+.t-sweep .transitionStrip:nth-child(6){left:75%;animation-delay:.175s}
+.t-sweep .transitionStrip:nth-child(7){left:92%;animation-delay:.21s}
+@keyframes sweepStrip{
+  0%{transform:translateX(-130vw) skewX(-12deg)}
+  48%{transform:translateX(0) skewX(-12deg)}
+  58%{transform:translateX(0) skewX(-12deg)}
+  100%{transform:translateX(130vw) skewX(-12deg)}
+}
+
+.t-shutter .transitionStrip{
+  left:0;width:100%;height:15%;transform:scaleX(0);
+  animation:shutterStrip .68s ease-in-out forwards
+}
+.t-shutter .transitionStrip:nth-child(1){top:0}
+.t-shutter .transitionStrip:nth-child(2){top:14.3%;animation-delay:.025s}
+.t-shutter .transitionStrip:nth-child(3){top:28.6%;animation-delay:.05s}
+.t-shutter .transitionStrip:nth-child(4){top:42.9%;animation-delay:.075s}
+.t-shutter .transitionStrip:nth-child(5){top:57.2%;animation-delay:.1s}
+.t-shutter .transitionStrip:nth-child(6){top:71.5%;animation-delay:.125s}
+.t-shutter .transitionStrip:nth-child(7){top:85.8%;animation-delay:.15s}
+@keyframes shutterStrip{
+  0%{transform:scaleX(0)}
+  45%{transform:scaleX(1)}
+  60%{transform:scaleX(1)}
+  100%{transform:scaleX(0)}
+}
+
+.t-iris{background:#fff;clip-path:circle(0% at 50% 50%);animation:iris .72s ease-in-out forwards}
+.t-iris .transitionStrip{display:none}
+@keyframes iris{
+  0%{clip-path:circle(0% at 50% 50%)}
+  48%{clip-path:circle(75% at 50% 50%)}
+  58%{clip-path:circle(75% at 50% 50%)}
+  100%{clip-path:circle(0% at 50% 50%)}
+}
+
+.t-diagonal{background:#fff;transform:translate(-120%,-120%) rotate(18deg) scale(1.8);animation:diagonal .72s ease-in-out forwards}
+.t-diagonal .transitionStrip{display:none}
+@keyframes diagonal{
+  0%{transform:translate(-120%,-120%) rotate(18deg) scale(1.8)}
+  48%{transform:translate(0,0) rotate(18deg) scale(1.8)}
+  58%{transform:translate(0,0) rotate(18deg) scale(1.8)}
+  100%{transform:translate(120%,120%) rotate(18deg) scale(1.8)}
+}
+
+.t-zoom{background:#fff;opacity:0;transform:scale(.15);border-radius:50%;animation:zoomTrans .68s ease-in-out forwards}
+.t-zoom .transitionStrip{display:none}
+@keyframes zoomTrans{
+  0%{opacity:0;transform:scale(.15);border-radius:50%}
+  43%{opacity:1;transform:scale(1.5);border-radius:0}
+  60%{opacity:1;transform:scale(1.5);border-radius:0}
+  100%{opacity:0;transform:scale(2.1);border-radius:0}
+}
+
+/* 10問終了 */
+#clearScreen{
+  z-index:80;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(145deg,#fff9d9,#e6f6ff)
+}
+.clearCard{
+  text-align:center;padding:36px 48px;
+  border-radius:32px;background:#fff;
+  box-shadow:0 15px 45px #0002
+}
+.clearStars{font-size:clamp(42px,8vw,82px);letter-spacing:.08em}
+.clearTitle{font-size:clamp(42px,7vw,72px);font-weight:900;margin-top:10px}
+.clearSub{font-size:clamp(20px,3vw,28px);font-weight:900;color:#6a7881;margin-top:10px}
+
+@media(max-width:700px){
+  .timeButtons{grid-template-columns:1fr}
+  .timeBtn{min-height:82px}
+}
+
+
+.againBtn{
+  margin-top:24px;border:0;border-radius:20px;
+  padding:14px 30px;background:#26384f;color:#fff;
+  font-size:24px;font-weight:900;cursor:pointer;
+  box-shadow:0 7px 0 rgba(0,0,0,.15)
+}
+.againBtn:active{transform:translateY(4px);box-shadow:0 3px 0 rgba(0,0,0,.15)}
+
+.boomCore{
+  font-size:clamp(190px,42vw,520px)!important;
+}
+.boomParticle{
+  box-shadow:0 0 18px currentColor;
+}
+.boomRing{
+  position:absolute;left:50%;top:50%;
+  width:18vmin;height:18vmin;border-radius:50%;
+  border:5vmin solid rgba(255,175,20,.78);
+  transform:translate(-50%,-50%) scale(.15);
+  animation:boomRing .86s ease-out forwards;
+}
+@keyframes boomRing{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.12)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(5.6)}
+}
+.miniBoom{
+  position:absolute;
+  font-size:clamp(60px,10vw,130px);
+  transform:translate(-50%,-50%) scale(.15);
+  animation:miniBoom .7s ease-out forwards;
+  filter:drop-shadow(0 5px 5px #0004)
+}
+@keyframes miniBoom{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.15)}
+  22%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.7)}
+}
+
+
+/* ===== ハードモード追加 ===== */
+.difficultyButtons{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+}
+.difficultyBtn{
+  min-height:112px;
+  border:0;
+  border-radius:24px;
+  color:#fff;
+  font-size:clamp(25px,3.6vw,38px);
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 8px 0 rgba(0,0,0,.12);
+}
+.difficultyBtn:active{
+  transform:translateY(4px);
+  box-shadow:0 4px 0 rgba(0,0,0,.12);
+}
+.difficultyBtn.normal{background:#4c91d7}
+.difficultyBtn.hard{background:#e5574f}
+
+.hardMissLayer{
+  position:absolute;
+  inset:0;
+  z-index:34;
+  pointer-events:none;
+  overflow:hidden;
+}
+.hardMissBoom{
+  position:absolute;
+  transform:translate(-50%,-50%) scale(.1);
+  font-size:clamp(90px,15vw,170px);
+  filter:drop-shadow(0 6px 7px #0005);
+  animation:hardMissBoom .58s ease-out forwards;
+}
+@keyframes hardMissBoom{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.1) rotate(-15deg)}
+  24%{opacity:1;transform:translate(-50%,-50%) scale(1.16) rotate(8deg)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.55) rotate(18deg)}
+}
+.hardMissParticle{
+  position:absolute;
+  width:var(--size);
+  height:var(--size);
+  border-radius:50%;
+  background:var(--c);
+  box-shadow:0 0 12px var(--c);
+  animation:hardMissParticle .58s ease-out forwards;
+}
+@keyframes hardMissParticle{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.3)}
+  100%{
+    opacity:0;
+    transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.15)
+  }
+}
+
+@media(max-width:700px){
+  .difficultyButtons{grid-template-columns:1fr}
+  .difficultyBtn{min-height:82px}
+}
+
+</style>
+</head>
+<body>
+<section id="titleScreen" class="screen">
+  <div class="titleCard">
+    <div id="scriptStep" class="titleStep">
+      <h1>ことば なぞり</h1>
+      <p>どっちで かく？</p>
+      <div class="modeButtons">
+        <button class="modeBtn hira" data-script="hira" type="button">ひらがな</button>
+        <button class="modeBtn kata" data-script="kata" type="button">カタカナ</button>
+      </div>
+    </div>
+    <div id="difficultyStep" class="titleStep hidden">
+      <h1>むずかしさを えらぼう</h1>
+      <p>どっちで やる？</p>
+      <div class="difficultyButtons">
+        <button class="difficultyBtn normal" data-difficulty="normal" type="button">ノーマル</button>
+        <button class="difficultyBtn hard" data-difficulty="hard" type="button">ハード</button>
+      </div>
+      <button id="backScript" class="backMode" type="button">← もどる</button>
+    </div>
+    <div id="timeStep" class="titleStep hidden">
+      <h1>モードを えらぼう</h1>
+      <p>じかんせいげんは？</p>
+      <div class="timeButtons">
+        <button class="timeBtn noLimit" data-timed="no" type="button">なし</button>
+        <button class="timeBtn timed" data-timed="yes" type="button">あり<br><span style="font-size:.68em">1もじ 15びょう</span></button>
+      </div>
+      <button id="backMode" class="backMode" type="button">← もどる</button>
+    </div>
+  </div>
+</section>
+<section id="gameScreen" class="screen hidden">
+  <div class="imageArea">
+    <div class="imageFrame">
+      <img id="sourceImage" alt="">
+      <canvas id="effectCanvas"></canvas>
+      <div id="imageFallback" class="imageFallback hidden"></div>
+    </div>
+    <div class="topBar">
+      <div id="timerBox" class="timerBox hidden">
+        <div class="timerRow"><span>のこり</span><span id="timerText">30</span></div>
+        <div class="timerTrack"><div id="timerFill" class="timerFill"></div></div>
+      </div>
+      <div id="problemCount" class="problemCount"></div>
+    </div>
+  </div>
+  <div class="traceArea">
+    <div class="wordStage"><div id="wordLine" class="wordLine"></div></div>
+    <div class="bottomBar"><div id="message" class="message"></div></div>
+  </div>
+
+  <div id="successLayer" class="successLayer hidden">
+    <button id="nextBtn" class="nextFloat" type="button">つぎへ</button>
+  </div>
+  <div id="timeoutLayer" class="timeoutLayer hidden"></div>
+  <div id="hardMissLayer" class="hardMissLayer hidden"></div>
+
+  <div id="transitionLayer" class="transitionLayer">
+    <div class="transitionStrip"></div><div class="transitionStrip"></div>
+    <div class="transitionStrip"></div><div class="transitionStrip"></div>
+    <div class="transitionStrip"></div><div class="transitionStrip"></div>
+    <div class="transitionStrip"></div>
+  </div>
+</section>
+<section id="clearScreen" class="screen hidden">
+  <div class="clearCard">
+    <div class="clearStars">⭐ ⭐ ⭐</div>
+    <div class="clearTitle">10もん クリア！</div>
+    <div class="clearSub">よく がんばりました！</div>
+    <button id="againBtn" class="againBtn" type="button">もういちど</button>
+  </div>
+</section>
+<script src="problems.js"></script>
+<script>
+(() => {
+  const PROBLEMS = window.PROBLEMS || [];
+  const SESSION_COUNT = 10;
+  const TIME_PER_CHAR_SECONDS = 15;
+  const TRANSITIONS = ["sweep","shutter","iris","diagonal","zoom"];
+  const EFFECTS = ["mosaic","sand","wave","tvnoise","rainbow"]; // 各20%
+  const HIRAGANA_BASE = "https://cdn.jsdelivr.net/npm/kana-svg-data/dist/hiragana/";
+  const KATAKANA_BASE = "https://cdn.jsdelivr.net/npm/kana-svg-data/dist/katakana/";
+  const SMALL_MAP = {"ゃ":"や","ゅ":"ゆ","ょ":"よ","っ":"つ","ャ":"ヤ","ュ":"ユ","ョ":"ヨ","ッ":"ツ","ァ":"ア","ィ":"イ","ゥ":"ウ","ェ":"エ","ォ":"オ"};
+  const SMALL_SET = new Set(Object.keys(SMALL_MAP));
+  const SPECIAL_DATA = {"ー":{strokes:{"1":"M180 490 C360 485 665 485 844 490 C865 491 875 513 861 528 C845 546 819 546 793 544 C602 538 411 539 220 544 C196 545 173 537 165 520 C157 505 165 492 180 490Z"},logicalStrokes:[{shapeIds:["1"],median:[[185,515],[420,515],[650,515],[840,515]]}]}};
+  const cache = new Map(), NS = "http://www.w3.org/2000/svg";
+  const CENTER_FALLBACK_RADIUS=92, START_RADIUS=105, RECOVERY_RADIUS=105, HARD_EXPLODE_RADIUS=130, FORWARD_WINDOW=165, BACK_WINDOW=26, SAMPLE_STEP=7, COMPLETE_MARGIN=14;
+
+  const titleScreen=document.getElementById("titleScreen"),
+        scriptStep=document.getElementById("scriptStep"),
+        difficultyStep=document.getElementById("difficultyStep"),
+        timeStep=document.getElementById("timeStep"),
+        backScript=document.getElementById("backScript"),
+        backMode=document.getElementById("backMode"),
+        gameScreen=document.getElementById("gameScreen"),
+        clearScreen=document.getElementById("clearScreen"),
+        againBtn=document.getElementById("againBtn"),
+        wordLine=document.getElementById("wordLine"),
+        nextBtn=document.getElementById("nextBtn"),
+        successLayer=document.getElementById("successLayer"),
+        timeoutLayer=document.getElementById("timeoutLayer"),
+        hardMissLayer=document.getElementById("hardMissLayer"),
+        transitionLayer=document.getElementById("transitionLayer"),
+        timerBox=document.getElementById("timerBox"),
+        timerText=document.getElementById("timerText"),
+        timerFill=document.getElementById("timerFill"),
+        messageEl=document.getElementById("message"),
+        problemCount=document.getElementById("problemCount"),
+        sourceImage=document.getElementById("sourceImage"),
+        effectCanvas=document.getElementById("effectCanvas"),
+        imageFallback=document.getElementById("imageFallback"),
+        ctx=effectCanvas.getContext("2d");
+
+  let mode="hira",
+      difficultyMode="normal",
+      timedMode=false,
+      sessionProblems=[],
+      sessionPos=0,
+      problemIndex=0,
+      effectName="mosaic",
+      word="",
+      chars=[],
+      charData=[],
+      currentCharIndex=0,
+      currentStrokeIndex=0,
+      strokeProgress=0,
+      tracing=false,
+      pointerId=null,
+      recoveryWaiting=false,
+      finished=false,
+      currentUI=null,
+      resizeTimer=null,
+      imageAvailable=false,
+      timerHandle=null,
+      timerStartedAt=0,
+      timerLocked=false,
+      transitionBusy=false;
+
+  function svgEl(name,attrs={}){const el=document.createElementNS(NS,name);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el}
+  function baseStrokeId(id){return String(id).replace(/[a-z]+$/i,"")}
+  function pointsToPath(points){return points.map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" ")}
+  function detectBaseForChar(ch){const code=ch.codePointAt(0);return((code>=0x30A0&&code<=0x30FF)||(code>=0x31F0&&code<=0x31FF))?KATAKANA_BASE:HIRAGANA_BASE}
+  function normalizeData(data){const strokes=Object.fromEntries(data.strokes.map(s=>[s.id,s.value])),groups=[],map=new Map();for(const s of data.strokes){const key=baseStrokeId(s.id);if(!map.has(key)){const g={shapeIds:[],median:null};map.set(key,g);groups.push(g)}map.get(key).shapeIds.push(s.id)}for(const m of data.medians){const g=map.get(baseStrokeId(m.id));if(g&&!g.median)g.median=m.value}return{strokes,logicalStrokes:groups.filter(g=>g.median&&g.median.length>=2)}}
+  async function fetchKana(ch){const source=SMALL_MAP[ch]||ch;if(SPECIAL_DATA[source])return SPECIAL_DATA[source];const base=detectBaseForChar(source),key=base+source;if(cache.has(key))return cache.get(key);const res=await fetch(base+encodeURIComponent(source)+".json");if(!res.ok)throw new Error("kana load error: "+source);const data=normalizeData(await res.json());cache.set(key,data);return data}
+
+  function shuffle(array){
+    const a=[...array];
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  document.querySelectorAll("[data-script]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      mode=btn.dataset.script;
+      scriptStep.classList.add("hidden");
+      difficultyStep.classList.remove("hidden");
+    });
+  });
+
+  document.querySelectorAll("[data-difficulty]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      difficultyMode=btn.dataset.difficulty;
+      difficultyStep.classList.add("hidden");
+      timeStep.classList.remove("hidden");
+    });
+  });
+
+  backScript.addEventListener("click",()=>{
+    difficultyStep.classList.add("hidden");
+    scriptStep.classList.remove("hidden");
+  });
+
+  backMode.addEventListener("click",()=>{
+    timeStep.classList.add("hidden");
+    difficultyStep.classList.remove("hidden");
+  });
+
+  document.querySelectorAll("[data-timed]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      timedMode=btn.dataset.timed==="yes";
+      startSession();
+    });
+  });
+
+  againBtn.addEventListener("click",()=>{
+    startSession();
+  });
+
+  function startSession(){
+    stopTimer();
+    sessionProblems=shuffle(PROBLEMS).slice(0,Math.min(SESSION_COUNT,PROBLEMS.length));
+    sessionPos=0;
+    titleScreen.classList.add("hidden");
+    clearScreen.classList.add("hidden");
+    gameScreen.classList.remove("hidden");
+    successLayer.classList.add("hidden");
+    timeoutLayer.classList.add("hidden");
+    loadProblem();
+  }
+
+  nextBtn.addEventListener("click",()=>{
+    if(transitionBusy) return;
+    nextBtn.classList.remove("show");
+    successLayer.classList.add("hidden");
+    goNextProblem();
+  });
+
+  function goNextProblem(){
+    stopTimer();
+    runRandomTransition(()=>{
+      sessionPos++;
+      if(sessionPos>=sessionProblems.length){
+        showClear();
+      }else{
+        loadProblem();
+      }
+    });
+  }
+
+  function showClear(){
+    gameScreen.classList.add("hidden");
+    clearScreen.classList.remove("hidden");
+  }
+
+  function runRandomTransition(midpointAction){
+    transitionBusy=true;
+    const type=TRANSITIONS[Math.floor(Math.random()*TRANSITIONS.length)];
+    transitionLayer.className=`transitionLayer active t-${type}`;
+
+    setTimeout(()=>{ midpointAction(); },330);
+    setTimeout(()=>{
+      transitionLayer.className="transitionLayer";
+      transitionBusy=false;
+    },820);
+  }
+
+  async function loadProblem(){
+    stopTimer();
+    successLayer.classList.add("hidden");
+    timeoutLayer.classList.add("hidden");
+    nextBtn.classList.remove("show");
+    messageEl.textContent="";
+
+    const p=sessionProblems[sessionPos];
+    problemIndex=PROBLEMS.indexOf(p);
+    word=mode==="hira"?p.hira:p.kata;
+    chars=Array.from(word);
+
+    if(chars.length<1||chars.length>6){
+      messageEl.textContent="1〜6文字の問題にしてください";
+      return;
+    }
+
+    problemCount.textContent=`${sessionPos+1} / ${sessionProblems.length}`;
+    effectName=EFFECTS[Math.floor(Math.random()*EFFECTS.length)];
+
+    try{
+      charData=await Promise.all(chars.map(fetchKana));
+    }catch(err){
+      console.error("kana data error",err);
+      messageEl.textContent="文字データを読みこめませんでした";
+      return;
+    }
+
+    currentCharIndex=0;
+    currentStrokeIndex=0;
+    strokeProgress=0;
+    tracing=false;
+    pointerId=null;
+    recoveryWaiting=false,
+      hardMissLocked=false;
+    finished=false;
+    timerLocked=false;
+    hardMissLocked=false;
+    recoveryWaiting=false;
+    renderAll();
+
+    try{
+      await loadProblemImage(p.image);
+      renderImageEffect();
+    }catch(err){
+      console.error("image/effect error",err);
+      messageEl.textContent="画像演出でエラーが発生しました";
+    }
+
+    if(timedMode) startTimer();
+    else timerBox.classList.add("hidden");
+  }
+
+  function startTimer(){
+    stopTimer();
+    timerLocked=false;
+    timerBox.classList.remove("hidden");
+    currentTimeLimit=Math.max(1,chars.length)*TIME_PER_CHAR_SECONDS;
+    timerStartedAt=performance.now();
+    timerText.textContent=String(currentTimeLimit);
+    timerFill.style.transform="scaleX(1)";
+
+    timerHandle=setInterval(()=>{
+      const elapsed=(performance.now()-timerStartedAt)/1000;
+      const remain=Math.max(0,currentTimeLimit-elapsed);
+      const ratio=Math.max(0,remain/currentTimeLimit);
+      timerText.textContent=String(Math.ceil(remain));
+      timerFill.style.transform=`scaleX(${ratio})`;
+
+      if(remain<=0){
+        stopTimer();
+        if(!finished && !timerLocked) timeUp();
+      }
+    },80);
+  }
+
+  function stopTimer(){
+    if(timerHandle){
+      clearInterval(timerHandle);
+      timerHandle=null;
+    }
+  }
+
+  function timeUp(){
+    timerLocked=true;
+    finished=true;
+    hardMissLocked=false;
+    tracing=false;
+    pointerId=null;
+    launchExplosion();
+
+    setTimeout(()=>{
+      if(!transitionBusy) goNextProblem();
+    },980);
+  }
+
+  function launchExplosion(){
+    timeoutLayer.innerHTML="";
+    timeoutLayer.classList.remove("hidden");
+    gameScreen.classList.remove("screenShake");
+    void gameScreen.offsetWidth;
+    gameScreen.classList.add("screenShake");
+
+    // 中央の大爆発
+    const core=document.createElement("div");
+    core.className="boomCore";
+    core.textContent="💥";
+    timeoutLayer.appendChild(core);
+
+    // 画面全体へ広がる衝撃波
+    for(let i=0;i<3;i++){
+      const ring=document.createElement("div");
+      ring.className="boomRing";
+      ring.style.animationDelay=`${i*90}ms`;
+      timeoutLayer.appendChild(ring);
+    }
+
+    // 周囲でも小爆発
+    const miniPositions=[
+      [14,24],[84,20],[22,73],[78,76],[50,14],[10,52],[90,53]
+    ];
+    miniPositions.forEach(([x,y],i)=>{
+      const b=document.createElement("div");
+      b.className="miniBoom";
+      b.textContent="💥";
+      b.style.left=`${x}%`;
+      b.style.top=`${y}%`;
+      b.style.animationDelay=`${80+i*45}ms`;
+      timeoutLayer.appendChild(b);
+    });
+
+    // 火花を画面の端近くまで飛ばす
+    const colors=["#ffd43b","#ff922b","#ff6b35","#ff3b30","#fff176","#ffb300"];
+    const maxD=Math.hypot(window.innerWidth,window.innerHeight)*0.72;
+    for(let i=0;i<110;i++){
+      const p=document.createElement("div");
+      p.className="boomParticle";
+      const a=Math.random()*Math.PI*2;
+      const d=maxD*(0.35+Math.random()*0.65);
+      p.style.setProperty("--dx",`${Math.cos(a)*d}px`);
+      p.style.setProperty("--dy",`${Math.sin(a)*d}px`);
+      p.style.setProperty("--size",`${10+Math.random()*32}px`);
+      const c=colors[Math.floor(Math.random()*colors.length)];
+      p.style.setProperty("--c",c);
+      p.style.color=c;
+      p.style.animationDuration=`${620+Math.random()*360}ms`;
+      timeoutLayer.appendChild(p);
+    }
+
+    setTimeout(()=>{
+      timeoutLayer.classList.add("hidden");
+      timeoutLayer.innerHTML="";
+      gameScreen.classList.remove("screenShake");
+    },980);
+  }
+
+  function launchStars(){
+    successLayer.querySelectorAll(".starParticle").forEach(el=>el.remove());
+    successLayer.classList.remove("hidden");
+
+    const stars=["⭐","✨","🌟","★"];
+    for(let i=0;i<34;i++){
+      const s=document.createElement("span");
+      s.className="starParticle";
+      s.textContent=stars[Math.floor(Math.random()*stars.length)];
+      const a=(Math.PI*2*i/34)+(Math.random()-.5)*.3;
+      const d=90+Math.random()*Math.min(innerWidth,innerHeight)*.48;
+      s.style.setProperty("--dx",`${Math.cos(a)*d}px`);
+      s.style.setProperty("--dy",`${Math.sin(a)*d}px`);
+      s.style.setProperty("--size",`${20+Math.random()*30}px`);
+      s.style.setProperty("--dur",`${650+Math.random()*550}ms`);
+      s.style.setProperty("--rot",`${-220+Math.random()*440}deg`);
+      successLayer.appendChild(s);
+    }
+
+    setTimeout(()=>nextBtn.classList.add("show"),180);
+    setTimeout(()=>{
+      successLayer.querySelectorAll(".starParticle").forEach(el=>el.remove());
+    },1300);
+  }
+
+  function makeSvg(){return svgEl("svg",{viewBox:"0 0 1024 1024",class:"charSvg"})}
+  function renderAll(){wordLine.innerHTML="";currentUI=null;chars.forEach((ch,idx)=>{const slot=document.createElement("div");slot.className="charSlot"+(SMALL_SET.has(ch)?" small":"");const svg=makeSvg();slot.appendChild(svg);wordLine.appendChild(slot);if(idx<currentCharIndex)renderCompletedChar(svg,charData[idx]);else if(idx===currentCharIndex&&!finished)currentUI=renderCurrentChar(svg,charData[idx],ch)});layoutSlots()}
+  function renderCompletedChar(svg,data){const g=svgEl("g");svg.appendChild(g);for(const d of Object.values(data.strokes))g.appendChild(svgEl("path",{d,class:"donePart"}))}
+  function renderCurrentChar(svg,data,ch){
+    const defs=svgEl("defs");
+    svg.appendChild(defs);
+
+    const doneG=svgEl("g");
+    const guideG=svgEl("g");
+    const revealG=svgEl("g");
+    svg.append(doneG,guideG,revealG);
+
+    /*
+      重要:
+      kana-svg-data の strokes には、重なり処理の都合で
+      別の画の輪郭が同じ path 内に重複して含まれる文字がある（例:「さ」）。
+      そのため輪郭 path 自体を表示せず、
+      「その画の median を、その画の輪郭で clip した線」として表示する。
+    */
+    function addLogicalStroke(targetG, logicalStroke, cls, suffix){
+      const clipId=`logical_${currentCharIndex}_${currentStrokeIndex}_${suffix}`;
+      const cp=svgEl("clipPath",{id:clipId});
+      for(const id of logicalStroke.shapeIds){
+        cp.appendChild(svgEl("path",{d:data.strokes[id]}));
+      }
+      defs.appendChild(cp);
+
+      const p=svgEl("path",{
+        d:pointsToPath(logicalStroke.median),
+        fill:"none",
+        stroke: cls==="donePart" ? "#35434d" : "#dfe4ea",
+        "stroke-width":"128",
+        "stroke-linecap":"round",
+        "stroke-linejoin":"round",
+        "clip-path":`url(#${clipId})`
+      });
+      targetG.appendChild(p);
+    }
+
+    // すでに終わった画も、各画の median 周辺だけを表示
+    for(let i=0;i<currentStrokeIndex;i++){
+      addLogicalStroke(doneG,data.logicalStrokes[i],"donePart",`done_${i}`);
+    }
+
+    const stroke=data.logicalStrokes[currentStrokeIndex];
+
+    // 今なぞる画だけ薄く表示
+    addLogicalStroke(guideG,stroke,"guidePart","guide");
+
+    // 当たり判定は輪郭 path 全体ではなく中心線距離で行うため、
+    // hitShapes は残すが insideStroke では中心線判定を優先する。
+    const hitShapes=[];
+    for(const id of stroke.shapeIds){
+      const p=svgEl("path",{d:data.strokes[id],fill:"transparent"});
+      svg.appendChild(p);
+      hitShapes.push(p);
+    }
+
+    const maskId=`mask_${currentCharIndex}_${currentStrokeIndex}`;
+    const mask=svgEl("mask",{id:maskId,maskUnits:"userSpaceOnUse",x:"0",y:"0",width:"1024",height:"1024"});
+    mask.appendChild(svgEl("rect",{x:"0",y:"0",width:"1024",height:"1024",fill:"black"}));
+
+    const maskStroke=svgEl("path",{
+      d:pointsToPath(stroke.median),
+      fill:"none",
+      stroke:"white",
+      "stroke-width":"128",
+      "stroke-linecap":"round",
+      "stroke-linejoin":"round"
+    });
+    mask.appendChild(maskStroke);
+
+    const maskDots=svgEl("g");
+    mask.appendChild(maskDots);
+    defs.appendChild(mask);
+
+    const darkMaskedGroup=svgEl("g",{mask:`url(#${maskId})`});
+    for(const id of stroke.shapeIds){
+      darkMaskedGroup.appendChild(svgEl("path",{d:data.strokes[id],class:"currentDarkPart"}));
+    }
+    revealG.appendChild(darkMaskedGroup);
+
+    const course=svgEl("path",{d:pointsToPath(stroke.median),fill:"none",stroke:"none"});
+    svg.appendChild(course);
+
+    const startGroup=svgEl("g");
+    const ring=svgEl("circle",{class:"startRing",r:"57"});
+    const dot=svgEl("circle",{class:"startDot",r:"37"});
+    const num=svgEl("text",{class:"startNum"});
+    num.textContent=currentStrokeIndex+1;
+    startGroup.append(ring,dot,num);
+    svg.appendChild(startGroup);
+
+    const runner=svgEl("text",{class:"runner"});
+    runner.textContent="🚗";
+    svg.appendChild(runner);
+
+    const ui={svg,course,hitShapes,maskStroke,maskDots,ring,dot,num,runner};
+    updateReveal(ui);
+    moveObjects(ui);
+
+    svg.addEventListener("pointerdown",e=>startTrace(e,ui));
+    svg.addEventListener("pointermove",e=>trace(e,ui));
+    svg.addEventListener("pointerup",endTrace);
+    svg.addEventListener("pointercancel",endTrace);
+
+    return ui
+  }
+  function updateReveal(ui){
+    const total=ui.course.getTotalLength();
+
+    /*
+      kana-svg-data / AnimCJK が想定している中心線描画に近い方式。
+      太い補助円や未来側の黒マスクは使わず、
+      現在位置までの中心線だけで濃くする。
+    */
+    ui.maskStroke.style.strokeDasharray=`${Math.max(0,strokeProgress)} ${total+100}`;
+    ui.maskStroke.style.strokeDashoffset="0";
+
+    while(ui.maskDots.firstChild) ui.maskDots.removeChild(ui.maskDots.firstChild);
+  }
+  function moveObjects(ui){const p=ui.course.getPointAtLength(strokeProgress);ui.ring.setAttribute("cx",p.x);ui.ring.setAttribute("cy",p.y);ui.dot.setAttribute("cx",p.x);ui.dot.setAttribute("cy",p.y);ui.num.setAttribute("x",p.x);ui.num.setAttribute("y",p.y+2);ui.runner.setAttribute("x",p.x);ui.runner.setAttribute("y",p.y)}
+  function svgPoint(evt,svg){const pt=svg.createSVGPoint();pt.x=evt.clientX;pt.y=evt.clientY;return pt.matrixTransform(svg.getScreenCTM().inverse())}const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  function nearestAllowed(pointer,ui,wide=false){const total=ui.course.getTotalLength(),from=wide?0:Math.max(0,strokeProgress-BACK_WINDOW),to=wide?total:Math.min(total,strokeProgress+FORWARD_WINDOW);let bestLen=wide?0:strokeProgress,bestDist=Infinity;for(let l=from;l<=to;l+=SAMPLE_STEP){const p=ui.course.getPointAtLength(l),d=dist(pointer,p);if(d<bestDist){bestDist=d;bestLen=l}}const end=ui.course.getPointAtLength(to),d=dist(pointer,end);if(d<bestDist){bestDist=d;bestLen=to}return{len:bestLen,dist:bestDist}}
+  function insideStroke(pointer,ui){
+    // 「さ」のように輪郭 path 内へ別画が重複していても、
+    // 現在の画の中心線から近い場所だけを有効にする。
+    return nearestAllowed(pointer,ui,true).dist<=105
+  }
+  function startTrace(evt,ui){
+    if(finished||ui!==currentUI)return;
+    if(evt.pointerType==="mouse"&&evt.button!==0)return;
+    const p=svgPoint(evt,ui.svg),now=ui.course.getPointAtLength(strokeProgress);
+    if(dist(p,now)<=START_RADIUS){
+      tracing=true;
+      pointerId=evt.pointerId;
+      recoveryWaiting=false;
+      ui.svg.setPointerCapture?.(pointerId);
+      evt.preventDefault();
+    }
+  }
+  function distanceFromCurrentStroke(pointer,ui){
+    return nearestAllowed(pointer,ui,true).dist;
+  }
+
+  function currentRunnerScreenPoint(ui){
+    const p=ui.course.getPointAtLength(strokeProgress);
+    const pt=ui.svg.createSVGPoint();
+    pt.x=p.x; pt.y=p.y;
+    return pt.matrixTransform(ui.svg.getScreenCTM());
+  }
+
+  function launchHardMissExplosion(screenPoint){
+    hardMissLayer.innerHTML="";
+    hardMissLayer.classList.remove("hidden");
+
+    const gameRect=gameScreen.getBoundingClientRect();
+    const x=screenPoint.x-gameRect.left;
+    const y=screenPoint.y-gameRect.top;
+
+    const boom=document.createElement("div");
+    boom.className="hardMissBoom";
+    boom.textContent="💥";
+    boom.style.left=`${x}px`;
+    boom.style.top=`${y}px`;
+    hardMissLayer.appendChild(boom);
+
+    const colors=["#ffd43b","#ff922b","#ff5a36","#ff3b30","#fff176"];
+    for(let i=0;i<28;i++){
+      const p=document.createElement("div");
+      p.className="hardMissParticle";
+      p.style.left=`${x}px`;
+      p.style.top=`${y}px`;
+      const a=Math.random()*Math.PI*2;
+      const d=45+Math.random()*120;
+      const c=colors[Math.floor(Math.random()*colors.length)];
+      p.style.setProperty("--dx",`${Math.cos(a)*d}px`);
+      p.style.setProperty("--dy",`${Math.sin(a)*d}px`);
+      p.style.setProperty("--size",`${7+Math.random()*15}px`);
+      p.style.setProperty("--c",c);
+      hardMissLayer.appendChild(p);
+    }
+
+    setTimeout(()=>{
+      hardMissLayer.classList.add("hidden");
+      hardMissLayer.innerHTML="";
+    },620);
+  }
+
+  function hardMiss(ui){
+    if(hardMissLocked || finished) return;
+    hardMissLocked=true;
+    tracing=false;
+    pointerId=null;
+    recoveryWaiting=false;
+
+    const boomPoint=currentRunnerScreenPoint(ui);
+    launchHardMissExplosion(boomPoint);
+
+    // 前の画・前の文字は残し、現在の1画だけ最初から。
+    setTimeout(()=>{
+      if(finished) return;
+      strokeProgress=0;
+      renderAll();
+      hardMissLocked=false;
+    },430);
+  }
+
+  function trace(evt,ui){
+    if(!tracing||evt.pointerId!==pointerId||finished||hardMissLocked||ui!==currentUI)return;
+    evt.preventDefault();
+    const p=svgPoint(evt,ui.svg);
+
+    if(!insideStroke(p,ui)){
+      if(difficultyMode==="hard"){
+        // ハード：ノーマルで車が止まる条件になった時点で即爆発。
+        hardMiss(ui);
+        return;
+      }
+
+      // ノーマルは今まで通り復帰待ち。
+      recoveryWaiting=true;
+      return;
+    }
+
+    // ノーマルのみ、一度線から外れた後は車の近くへ戻るまで再開しない。
+    if(recoveryWaiting){
+      const now=ui.course.getPointAtLength(strokeProgress);
+      if(dist(p,now)>RECOVERY_RADIUS) return;
+      recoveryWaiting=false;
+      return;
+    }
+
+    const n=nearestAllowed(p,ui,false);
+    if(n.len>strokeProgress){
+      strokeProgress=n.len;
+      updateReveal(ui);
+      moveObjects(ui);
+    }
+    const total=ui.course.getTotalLength();
+    if(total-strokeProgress<=COMPLETE_MARGIN)finishStroke();
+  }
+  function endTrace(evt){
+    if(evt.pointerId!==pointerId)return;
+    tracing=false;
+    pointerId=null;
+    recoveryWaiting=false;
+  }
+  function finishStroke(){
+    tracing=false;
+    pointerId=null;
+    recoveryWaiting=false;
+    const data=charData[currentCharIndex];
+
+    if(currentStrokeIndex<data.logicalStrokes.length-1){
+      currentStrokeIndex++;
+      strokeProgress=0;
+      renderAll();
+      return;
+    }
+
+    currentCharIndex++;
+    currentStrokeIndex=0;
+    strokeProgress=0;
+    renderImageEffect();
+
+    if(currentCharIndex>=chars.length){
+      finished=true;
+      stopTimer();
+      renderAll();
+      renderImageEffect(true);
+      launchStars();
+      return;
+    }
+
+    renderAll();
+  }
+
+  function layoutSlots(){const rect=wordLine.getBoundingClientRect();if(!rect.width||!rect.height||chars.length===0)return;const gap=Math.min(10,Math.max(3,rect.width*.007)),weights=chars.map(ch=>SMALL_SET.has(ch)?.72:1),sum=weights.reduce((a,b)=>a+b,0),usableW=Math.max(80,rect.width-gap*(chars.length-1)),byWidth=usableW/sum,byHeight=rect.height*.96,base=Math.min(byWidth,byHeight);[...wordLine.children].forEach((slot,i)=>{slot.style.width=(base*weights[i])+"px";slot.style.height=base+"px"})}
+
+  function loadProblemImage(src){
+    return new Promise(resolve=>{
+      sourceImage.onload=()=>{
+        imageAvailable=true;
+        imageFallback.classList.add("hidden");
+        resizeCanvasToFrame();
+        resolve(true);
+      };
+      sourceImage.onerror=()=>{
+        imageAvailable=false;
+        imageFallback.classList.add("hidden");
+        resizeCanvasToFrame();
+        resolve(false);
+      };
+      sourceImage.src=src+"?v="+Date.now();
+    });
+  }
+  function resizeCanvasToFrame(){const frame=effectCanvas.parentElement.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);effectCanvas.width=Math.max(1,Math.round(frame.width*dpr));effectCanvas.height=Math.max(1,Math.round(frame.height*dpr))}
+  function drawImageContain(context,img,x,y,w,h){const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;if(!iw||!ih)return;const scale=Math.min(w/iw,h/ih),dw=iw*scale,dh=ih*scale;context.drawImage(img,x+(w-dw)/2,y+(h-dh)/2,dw,dh)}
+  function imageProgress(){return chars.length?Math.min(1,currentCharIndex/chars.length):0}
+  function makeOffscreen(W,H){const c=document.createElement("canvas");c.width=W;c.height=H;return c}
+  function drawDemoImage(context,W,H){
+    const g=context.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,"#ffcf4a");
+    g.addColorStop(.45,"#ff8a5b");
+    g.addColorStop(1,"#6bb7ff");
+    context.fillStyle=g;
+    context.fillRect(0,0,W,H);
+
+    context.save();
+    context.translate(W/2,H/2);
+    context.fillStyle="rgba(255,255,255,.95)";
+    context.beginPath();
+    context.arc(0,0,Math.min(W,H)*.23,0,Math.PI*2);
+    context.fill();
+
+    context.fillStyle="#35434d";
+    context.beginPath();
+    context.arc(-Math.min(W,H)*.08,-Math.min(W,H)*.04,Math.min(W,H)*.025,0,Math.PI*2);
+    context.arc(Math.min(W,H)*.08,-Math.min(W,H)*.04,Math.min(W,H)*.025,0,Math.PI*2);
+    context.fill();
+
+    context.strokeStyle="#35434d";
+    context.lineWidth=Math.max(4,Math.min(W,H)*.012);
+    context.lineCap="round";
+    context.beginPath();
+    context.arc(0,Math.min(W,H)*.03,Math.min(W,H)*.09,.15*Math.PI,.85*Math.PI);
+    context.stroke();
+    context.restore();
+
+    context.fillStyle="rgba(255,255,255,.82)";
+    context.font=`900 ${Math.max(18,Math.round(Math.min(W,H)*.055))}px sans-serif`;
+    context.textAlign="center";
+    context.fillText("IMAGE",W/2,H*.88);
+  }
+
+  function baseImageCanvas(W,H){
+    const c=makeOffscreen(W,H),cctx=c.getContext("2d");
+    if(imageAvailable && sourceImage.naturalWidth){
+      drawImageContain(cctx,sourceImage,0,0,W,H);
+    }else{
+      drawDemoImage(cctx,W,H);
+    }
+    return c
+  }
+  function renderImageEffect(forceClear=false){
+    resizeCanvasToFrame();
+    const W=effectCanvas.width,H=effectCanvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    if(forceClear||currentCharIndex>=chars.length){
+      const base=baseImageCanvas(W,H);
+      ctx.drawImage(base,0,0);
+      return;
+    }
+
+    const strength=1-imageProgress();
+    ({mosaic:drawMosaic,sand:drawSand,wave:drawWave,tvnoise:drawTvNoise,rainbow:drawRainbowSilhouette}[effectName]||drawMosaic)(W,H,strength)
+  }
+  function drawMosaic(W,H,strength){const base=baseImageCanvas(W,H),blocks=Math.max(8,Math.round(12+strength*38)),sw=Math.max(1,Math.round(W/blocks)),sh=Math.max(1,Math.round(H/blocks)),small=makeOffscreen(sw,sh);small.getContext("2d").drawImage(base,0,0,sw,sh);ctx.imageSmoothingEnabled=false;ctx.drawImage(small,0,0,sw,sh,0,0,W,H);ctx.imageSmoothingEnabled=true}
+  function drawSand(W,H,strength){
+    const base=baseImageCanvas(W,H);
+
+    // まず元画像を描く
+    ctx.drawImage(base,0,0);
+
+    /*
+      今回のサンドストームは「薄くなる」のではなく、
+      砂の層に穴が空いていき、見える箇所が増える方式。
+    */
+    const sand=makeOffscreen(W,H);
+    const sctx=sand.getContext("2d");
+
+    // 砂色の地の層
+    sctx.fillStyle="#d2b07b";
+    sctx.fillRect(0,0,W,H);
+
+    // ざらつき
+    let seed=(problemIndex+1)*92821 + chars.length*337 + Math.floor(strength*100)*17;
+    const rand=()=>{ seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; };
+
+    const grainCount=Math.floor(1300 + strength*2400);
+    for(let i=0;i<grainCount;i++){
+      const x=rand()*W;
+      const y=rand()*H;
+      const r=(0.6+rand()*2.8)*(0.6+strength*0.8);
+      const alpha=0.08+rand()*0.22;
+      const rr=188+Math.floor(rand()*35);
+      const gg=145+Math.floor(rand()*35);
+      const bb=80+Math.floor(rand()*30);
+      sctx.fillStyle=`rgba(${rr},${gg},${bb},${alpha})`;
+      sctx.beginPath();
+      sctx.arc(x,y,r,0,Math.PI*2);
+      sctx.fill();
+    }
+
+    // 風の筋
+    const streaks=Math.floor(40 + strength*85);
+    sctx.save();
+    sctx.lineCap="round";
+    for(let i=0;i<streaks;i++){
+      const x=rand()*W;
+      const y=rand()*H;
+      const len=(30+rand()*120)*(0.6+strength);
+      const thick=1+rand()*4;
+      const alpha=0.05+rand()*0.16;
+      sctx.strokeStyle=`rgba(${205+Math.floor(rand()*30)},${170+Math.floor(rand()*25)},${110+Math.floor(rand()*20)},${alpha})`;
+      sctx.lineWidth=thick;
+      sctx.beginPath();
+      sctx.moveTo(x,y);
+      sctx.lineTo(Math.min(W,x+len), Math.max(0,Math.min(H,y-len*0.12+rand()*18)));
+      sctx.stroke();
+    }
+    sctx.restore();
+
+    // destination-out で「見える穴」を空ける
+    sctx.globalCompositeOperation="destination-out";
+
+    // 進行に応じて穴の数と大きさが増える
+    const holeFactor=1-strength; // 進むほど大きく
+    const holeCount=Math.floor(6 + holeFactor*38);
+    for(let i=0;i<holeCount;i++){
+      const x=rand()*W;
+      const y=rand()*H;
+      const rw=(W*(0.05+rand()*0.09))*(0.7+holeFactor*1.9);
+      const rh=(H*(0.04+rand()*0.08))*(0.7+holeFactor*1.9);
+
+      const g=sctx.createRadialGradient(x,y,0,x,y,Math.max(rw,rh));
+      g.addColorStop(0,"rgba(0,0,0,1)");
+      g.addColorStop(0.58,"rgba(0,0,0,0.92)");
+      g.addColorStop(1,"rgba(0,0,0,0)");
+      sctx.fillStyle=g;
+
+      sctx.beginPath();
+      sctx.ellipse(x,y,rw,rh,(rand()-0.5)*0.8,0,Math.PI*2);
+      sctx.fill();
+    }
+
+    // 完全な穴だけでなく、周辺を少し薄くする帯も入れる
+    const softHoles=Math.floor(10 + holeFactor*32);
+    for(let i=0;i<softHoles;i++){
+      const x=rand()*W;
+      const y=rand()*H;
+      const rw=(W*(0.03+rand()*0.06))*(0.8+holeFactor*1.4);
+      const rh=(H*(0.025+rand()*0.05))*(0.8+holeFactor*1.4);
+      sctx.fillStyle=`rgba(0,0,0,${0.16+rand()*0.18})`;
+      sctx.beginPath();
+      sctx.ellipse(x,y,rw,rh,(rand()-0.5)*0.8,0,Math.PI*2);
+      sctx.fill();
+    }
+
+    // 上に砂の層を重ねる
+    ctx.drawImage(sand,0,0);
+  }
+
+function drawWave(W,H,strength){
+    const base=baseImageCanvas(W,H);
+
+    /*
+      初期は大きく派手に波打たせる。
+      1文字完成ごとに strength が下がり、急速に元画像へ近づく。
+    */
+    const amp1=6 + strength*92;
+    const amp2=2 + strength*34;
+    const period1=Math.max(54,H/4.4);
+    const period2=Math.max(34,H/8.5);
+    const slice=2;
+
+    for(let y=0;y<H;y+=slice){
+      const s1=Math.sin((y/period1)*Math.PI*2)*amp1;
+      const s2=Math.sin((y/period2)*Math.PI*2 + 1.2)*amp2;
+      const shift=s1+s2;
+      ctx.drawImage(base,0,y,W,slice,shift,y,W,slice);
+    }
+
+    // 水面っぽい色味も初期ほど強くする
+    ctx.save();
+    ctx.globalAlpha=.06+.20*strength;
+    const g=ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,"#74d8ff");
+    g.addColorStop(.5,"#b9f1ff");
+    g.addColorStop(1,"#4ea7ff");
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+
+    // 静止した明るい波筋
+    ctx.save();
+    ctx.globalAlpha=.08+.18*strength;
+    ctx.strokeStyle="white";
+    ctx.lineWidth=Math.max(2,Math.min(W,H)*.006);
+    for(let i=0;i<5;i++){
+      const yy=H*(.18+i*.16);
+      ctx.beginPath();
+      for(let x=0;x<=W;x+=12){
+        const y2=yy + Math.sin((x/W)*Math.PI*4 + i*.8)*(8+strength*20);
+        if(x===0) ctx.moveTo(x,y2); else ctx.lineTo(x,y2);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawTvNoise(W,H,strength){
+    const base=baseImageCanvas(W,H);
+
+    // 元画像
+    ctx.drawImage(base,0,0);
+
+    /*
+      初期は「ほとんど見えない」くらい強いテレビ砂嵐。
+      進むにつれてノイズの密度・不透明度が下がり、
+      見える部分が増える。
+    */
+    const noise=makeOffscreen(W,H);
+    const nctx=noise.getContext("2d");
+
+    let seed=(problemIndex+1)*6151 + chars.length*1237 + Math.floor(strength*100)*61;
+    const rand=()=>{ seed=(seed*1103515245+12345)>>>0; return seed/4294967296; };
+
+    // ベースの暗幕をまず敷く
+    nctx.fillStyle=`rgba(10,10,10,${0.18 + strength*0.54})`;
+    nctx.fillRect(0,0,W,H);
+
+    // 高密度の白黒ノイズ粒
+    const imgData=nctx.createImageData(W,H);
+    const data=imgData.data;
+    const alphaBase=0.48 + strength*0.42; // 初期はかなり濃い
+    for(let i=0;i<data.length;i+=4){
+      const v=Math.floor(rand()*255);
+      data[i]=v; data[i+1]=v; data[i+2]=v;
+      data[i+3]=Math.floor((alphaBase*(0.70+rand()*0.30))*255);
+    }
+    nctx.putImageData(imgData,0,0);
+
+    // 太めの横縞・乱れ
+    const bands=Math.floor(18 + strength*34);
+    for(let i=0;i<bands;i++){
+      const y=rand()*H;
+      const h=1 + rand()*14;
+      const bright = rand()>0.5 ? 255 : 0;
+      const a=0.10 + rand()*(0.12 + strength*0.18);
+      nctx.fillStyle=`rgba(${bright},${bright},${bright},${a})`;
+      nctx.fillRect(0,y,W,h);
+    }
+
+    // ブロック状のザラつき
+    const blocks=Math.floor(25 + strength*65);
+    for(let i=0;i<blocks;i++){
+      const x=rand()*W;
+      const y=rand()*H;
+      const w=(8+rand()*28)*(0.7+strength*0.8);
+      const h=(5+rand()*18)*(0.7+strength*0.8);
+      const bright = rand()>0.55 ? 255 : 25;
+      const a=0.08 + rand()*(0.12 + strength*0.14);
+      nctx.fillStyle=`rgba(${bright},${bright},${bright},${a})`;
+      nctx.fillRect(x,y,w,h);
+    }
+
+    // 進行すると見える窓が少しずつ増える
+    nctx.globalCompositeOperation="destination-out";
+    const revealLevel = 1 - strength;
+    const holeCount = Math.floor(1 + revealLevel*10);
+    for(let i=0;i<holeCount;i++){
+      const x=rand()*W;
+      const y=rand()*H;
+      const rw=(W*(0.03+rand()*0.08))*(0.7+revealLevel*1.5);
+      const rh=(H*(0.03+rand()*0.07))*(0.7+revealLevel*1.5);
+      const g=nctx.createRadialGradient(x,y,0,x,y,Math.max(rw,rh));
+      g.addColorStop(0,"rgba(0,0,0,0.92)");
+      g.addColorStop(0.6,"rgba(0,0,0,0.45)");
+      g.addColorStop(1,"rgba(0,0,0,0)");
+      nctx.fillStyle=g;
+      nctx.beginPath();
+      nctx.ellipse(x,y,rw,rh,(rand()-0.5)*0.9,0,Math.PI*2);
+      nctx.fill();
+    }
+
+    // 画面全体を少し荒らす筋
+    nctx.globalCompositeOperation="source-over";
+    nctx.strokeStyle=`rgba(255,255,255,${0.03 + strength*0.10})`;
+    nctx.lineWidth=Math.max(1, Math.min(W,H)*0.003);
+    for(let i=0;i<Math.floor(10 + strength*26);i++){
+      const y=rand()*H;
+      nctx.beginPath();
+      nctx.moveTo(0,y);
+      for(let x=0;x<=W;x+=18){
+        nctx.lineTo(x, y + (rand()-0.5)*(4 + strength*18));
+      }
+      nctx.stroke();
+    }
+
+    ctx.drawImage(noise,0,0);
+
+    // 受信のズレっぽい色ぶれ
+    if(strength > 0.08){
+      ctx.save();
+      ctx.globalAlpha=0.03 + strength*0.08;
+      ctx.globalCompositeOperation="screen";
+      ctx.drawImage(base, -14*strength, 0, W, H);
+      ctx.restore();
+    }
+  }
+
+function drawRainbowSilhouette(W,H,strength){const base=baseImageCanvas(W,H);ctx.save();ctx.translate(W/2,H/2);const radius=Math.hypot(W,H),colors=["#ff3b30","#ff9500","#ffcc00","#34c759","#00c7be","#007aff","#5856d6","#af52de"],wedges=32;for(let i=0;i<wedges;i++){const a0=(i/wedges)*Math.PI*2,a1=((i+1)/wedges)*Math.PI*2;ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,radius,a0,a1);ctx.closePath();ctx.globalAlpha=.35+.45*strength;ctx.fillStyle=colors[i%colors.length];ctx.fill()}ctx.restore();const silhouette=makeOffscreen(W,H),sctx=silhouette.getContext("2d");sctx.drawImage(base,0,0);sctx.globalCompositeOperation="source-in";const grad=sctx.createLinearGradient(0,0,W,H);colors.forEach((c,i)=>grad.addColorStop(i/(colors.length-1),c));sctx.fillStyle=grad;sctx.fillRect(0,0,W,H);ctx.save();ctx.globalAlpha=.98;ctx.drawImage(silhouette,0,0);ctx.restore();ctx.save();ctx.globalAlpha=(1-strength)*.86;ctx.drawImage(base,0,0);ctx.restore()}
+
+  window.addEventListener("resize",()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{layoutSlots();renderImageEffect(currentCharIndex>=chars.length)},100)});
+})();
+</script>
+</body>
+</html>
